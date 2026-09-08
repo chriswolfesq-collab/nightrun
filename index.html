@@ -1,0 +1,61 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#04030f">
+<meta name="description" content="NIGHTRUN — a neon auto-runner. Jump, air-jump, slide and surge through a course that is generated and proof-checked as you run it.">
+<title>NIGHTRUN</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2304030f'/><rect x='11' y='7' width='10' height='16' rx='3' fill='%233ff0ff'/></svg>">
+
+<div id="app">
+  <canvas id="stage"></canvas>
+
+  <div id="hud" hidden>
+    <div class="hud-row">
+      <div class="stat big"><span id="dist">0</span><em>m</em></div>
+      <div class="stat"><b>BEST</b><span id="best">0</span><em>m</em></div>
+      <div class="stat"><b>SCORE</b><span id="score">0</span></div>
+      <div class="stat mult"><span id="mult">×1</span></div>
+    </div>
+    <div class="surge" id="surgewrap">
+      <div class="surge-bar"><i id="surgefill"></i></div>
+      <span class="surge-label" id="surgelabel">SURGE</span>
+    </div>
+  </div>
+
+  <button id="mute" title="Mute (M)" aria-label="Mute">♪</button>
+  <button id="surgebtn" hidden aria-label="Surge">⚡</button>
+
+  <div class="screen" id="title">
+    <h1>NIGHT<span>RUN</span></h1>
+    <p class="tag">The city only goes one way. So do you.</p>
+    <div class="keys">
+      <div><kbd>Space</kbd><kbd>↑</kbd> jump &middot; hold for height &middot; again in the air</div>
+      <div><kbd>↓</kbd><kbd>S</kbd> slide under the amber bars</div>
+      <div><kbd>Shift</kbd> surge — spend a full meter to smash straight through</div>
+      <div class="touch-only">tap to jump &middot; drag down to slide &middot; ⚡ to surge</div>
+    </div>
+    <button class="go" id="play">RUN</button>
+    <p class="fine" id="titlebest"></p>
+  </div>
+
+  <div class="screen" id="over" hidden>
+    <p class="cause" id="cause">WRECKED</p>
+    <div class="final"><span id="fdist">0</span><em>m</em></div>
+    <p class="verdict" id="verdict"></p>
+    <div class="grid">
+      <div><b id="fscore">0</b><span>score</span></div>
+      <div><b id="forbs">0</b><span>cells</span></div>
+      <div><b id="ftime">0s</b><span>alive</span></div>
+      <div><b id="fbest">0</b><span>best</span></div>
+    </div>
+    <button class="go" id="again">RUN AGAIN</button>
+    <p class="fine">press <kbd>R</kbd> or <kbd>Space</kbd></p>
+  </div>
+
+  <div class="screen soft" id="paused" hidden>
+    <h2>PAUSED</h2>
+    <p class="fine">press <kbd>Esc</kbd> to resume</p>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
