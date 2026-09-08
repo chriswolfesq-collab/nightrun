@@ -29,6 +29,7 @@
   <div class="screen" id="title">
     <h1>NIGHT<span>RUN</span></h1>
     <p class="tag">The city only goes one way. So do you.</p>
+    <p class="banner" id="challengebanner" hidden></p>
     <div class="keys">
       <div><kbd>Space</kbd><kbd>↑</kbd> jump &middot; hold for height &middot; again in the air</div>
       <div><kbd>↓</kbd><kbd>S</kbd> slide under the amber bars</div>
@@ -36,6 +37,7 @@
       <div class="touch-only">tap anywhere to jump &middot; hold ▼ to slide &middot; ⚡ to surge</div>
     </div>
     <button class="go" id="play">RUN</button>
+    <button class="link" id="newcity" hidden>or run a fresh city</button>
     <p class="fine" id="titlebest"></p>
   </div>
 
@@ -49,8 +51,11 @@
       <div><b id="ftime">0s</b><span>alive</span></div>
       <div><b id="fbest">0</b><span>best</span></div>
     </div>
-    <button class="go" id="again">RUN AGAIN</button>
-    <p class="fine">press <kbd>R</kbd> or <kbd>Space</kbd></p>
+    <div class="actions">
+      <button class="go" id="again">RUN AGAIN</button>
+      <button class="go ghost" id="share">SHARE</button>
+    </div>
+    <p class="fine">press <kbd>R</kbd> or <kbd>Space</kbd> to go again</p>
   </div>
 
   <div class="screen soft" id="paused" hidden>

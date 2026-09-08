@@ -3,6 +3,7 @@ import { createGame } from './game.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import * as store from './storage.js';
+import { share, shareText, shareCard, challengeUrl, parseChallenge } from './share.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('stage');
@@ -15,6 +16,8 @@ const g = game.g;
 
 let stats = store.load();
 let paused = false;
+let challenge = parseChallenge();   // a city somebody sent us, if any
+let lastRun = null;
 
 // --- screens ---------------------------------------------------------------
 
@@ -46,6 +49,14 @@ function refreshTitle() {
   $('titlebest').textContent = stats.runs
     ? `${stats.runs} runs · best ${Math.round(stats.best)}m · ${Math.round(stats.totalDist / 1000)}km total`
     : '';
+  const banner = $('challengebanner');
+  banner.hidden = !challenge;
+  $('newcity').hidden = !challenge;
+  if (challenge) {
+    banner.innerHTML = challenge.dist
+      ? `CHALLENGE · BEAT <b>${challenge.dist.toLocaleString()}m</b> ON THIS CITY`
+      : 'CHALLENGE · SOMEBODY SENT YOU THIS CITY';
+  }
 }
 
 // --- run control -----------------------------------------------------------
@@ -53,7 +64,19 @@ function refreshTitle() {
 function begin() {
   audio.unlock();
   refreshTitle();
-  game.start((Math.random() * 1e9) | 0, stats.best);
+  // A challenge keeps its seed across retries -- you cannot learn a city you are
+  // only shown once.
+  const seed = challenge ? challenge.seed : (Math.random() * 1e9) | 0;
+  const gates = [
+    { m: stats.best, label: 'YOUR BEST', done: 'NEW BEST', tone: 'best', hue: 190 },
+  ];
+  if (challenge?.dist) {
+    gates.push({
+      m: challenge.dist, tone: 'target', hue: 330,
+      label: `${challenge.dist.toLocaleString()}m TO BEAT`, done: 'PASSED',
+    });
+  }
+  game.start(seed, gates);
   audio.startMusic();
   show(null);
   $('surgebtn').hidden = true;
@@ -62,21 +85,46 @@ function begin() {
 
 function finish() {
   const run = game.run;
+  const prevBest = stats.best;
+  const target = challenge?.dist || 0;
+  const beat = target && run.dist >= target ? target : 0;
   stats = store.record(run);
+
+  lastRun = { ...run, beat, url: challengeUrl({ seed: run.seed, dist: run.dist }) };
+
   $('cause').textContent = g.cause === 'fell' ? 'LOST TO THE GAP' : 'WRECKED';
-  $('fdist').textContent = run.dist;
+  $('fdist').textContent = run.dist.toLocaleString();
   $('fscore').textContent = run.score.toLocaleString();
   $('forbs').textContent = run.orbs;
-  $('ftime').textContent = `${g.runTime.toFixed(1)}s`;
+  $('ftime').textContent = `${run.time.toFixed(1)}s`;
   $('fbest').textContent = `${Math.round(stats.best)}m`;
-  $('verdict').textContent = g.passedBest && run.dist >= stats.best
-    ? 'NEW PERSONAL BEST'
+  $('verdict').textContent =
+    beat ? `CHALLENGE BEATEN · ${target.toLocaleString()}m`
+    : target ? `${(target - run.dist).toLocaleString()}m SHORT`
+    : run.dist > prevBest ? 'NEW PERSONAL BEST'
     : verdictFor(run.dist);
   show('over');
 }
 
 $('play').onclick = begin;
 $('again').onclick = begin;
+
+$('share').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (lastRun) share(shareText(lastRun), $('share'), shareCard(lastRun));
+});
+
+$('newcity').addEventListener('click', (e) => {
+  e.stopPropagation();
+  challenge = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  refreshTitle();
+  begin();
+});
+
+// Somebody pasting a link into the address bar of an open game should get that
+// city, not the one already running.
+addEventListener('hashchange', () => location.reload());
 
 $('mute').onclick = (e) => {
   e.stopPropagation();
@@ -171,8 +219,9 @@ function frame(now) {
 // Handy from the console: nightrun.game.start(seed), nightrun.g, and friends.
 window.nightrun = { game, renderer, input, audio, store };
 
-// The title screen shows a real slice of course rather than an empty backdrop.
-game.start(Date.now() & 0xffff, 0);
+// The title screen shows a real slice of course rather than an empty backdrop --
+// and no opening runway, which is the empty backdrop it exists to avoid.
+game.start(Date.now() & 0xffff, [], { leadIn: 0 });
 g.state = 'title';
 refreshTitle();
 show('title');

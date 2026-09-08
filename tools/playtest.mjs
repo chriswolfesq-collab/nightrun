@@ -38,7 +38,7 @@ for (let run = 0; run < RUNS; run++) {
   };
 
   const t0 = Date.now();
-  const res = solveFrom(world, speedAt, { x: 0, y: 0, vy: 0, onGround: true, sliding: false, jumps: 1, coyote: 0.09, bufferT: 0, justJumped: 0, landed: false }, TARGET_X, false, 4e6);
+  const res = solveFrom(world, speedAt, { x: course.startX, y: 0, vy: 0, onGround: true, sliding: false, jumps: 1, coyote: 0.09, bufferT: 0, justJumped: 0, landed: false }, TARGET_X, false, 4e6);
   totalMs += Date.now() - t0;
   totalNodes += res.nodes;
 
@@ -56,7 +56,7 @@ for (let run = 0; run < RUNS; run++) {
   // --- 2. does the real game agree? ---------------------------------------
   const game = createGame({ audio: null });
   const g = game.g;
-  game.start(seed, 0);
+  game.start(seed, []);
   let held = false;
   for (const a of res.inputs) {
     if (a === 1) held = true; else if (a === 2) held = false;

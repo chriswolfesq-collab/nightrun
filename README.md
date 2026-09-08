@@ -50,6 +50,7 @@ constants, and the validator re-plays every chunk under them.
 | `js/generator.js` | Chunk templates, the difficulty ramp, and the reroll loop. |
 | `js/game.js` | Run state: streaming, scoring, surge, death. |
 | `js/render.js` | Canvas 2D. Sun, skyline, grid, glow — all procedural, no assets. |
+| `js/share.js` | Challenge links, the share text, and the card. |
 | `js/audio.js` | Web Audio. The bassline's tempo tracks the difficulty. |
 
 ### The physics is shared, deliberately
@@ -74,6 +75,34 @@ something** at or beyond the target. That one change is what makes a line a line
 The frontier is bucketed by how far right a state has got, so the search spends
 its budget going forwards. Ordinary chunks are proved in a fraction of a
 millisecond; the hardest measured takes about 26k states.
+
+## Sharing a run
+
+A distance on its own is a boast nobody can check or answer. The course is a pure
+function of its seed, so a shared run carries the seed:
+
+```
+NIGHTRUN  1,310m
+🟪🟪🟪🟪🟪🟪🟪🟪⬛⬛ 💥
+
+Beat 1,240m on this course.
+
+31 cells · ×4 · 1 surge · 43.8s
+
+Same city, your turn:
+.../#/run/39u?d=1310
+```
+
+Opening that link runs **the same city, block for block**, with a magenta gate
+standing in the world at the distance that was sent. Your own best stands there
+too, in violet. Retries keep the seed — you cannot learn a city you are only
+shown once — and finishing produces a link back with your own distance in it, so
+a challenge can bounce between two people on one course.
+
+The squares track the real difficulty ramp (`difficultyAt`), not an arbitrary
+maximum, so retuning the pacing retunes the bar with it. Sharing goes to the
+native share sheet with a rendered card where that exists, the clipboard where it
+does not, and a visible textarea if both are blocked.
 
 ## The tools are the design work
 
@@ -144,6 +173,19 @@ Surge deliberately breaks that: +32% speed for 3.2 seconds. Gaps get *easier*
 (reach scales with speed) and anything breakable in the way is destroyed on
 contact, so it cannot expire with you buried in a wall — but a narrow landing
 platform can be overshot. That is the trade, and it is the player's to make.
+
+### The run opens on empty road
+
+Every run begins 1330px *behind* the start line, on a flat runway with nothing
+on it — three and a half seconds at the opening speed, so the first obstacle is
+still off the right of the screen when control is handed over. The runway sits
+at negative x so the metres on the HUD still start at the start line: a free
+three seconds that also added eighty metres to every run would have quietly
+beaten everyone's old best. A player who never touches the keyboard now lives
+3.9s instead of 0.4s.
+
+The title screen's attract loop asks for `leadIn: 0` — an empty straight is the
+blank backdrop it exists to avoid.
 
 ## Known limits
 

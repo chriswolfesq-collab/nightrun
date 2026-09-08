@@ -16,9 +16,12 @@ import { solve } from './solver.js';
 
 export const PX_PER_M = 15;
 
-/** 0 at the start line, 1 once the course has nothing left to escalate. */
+/** 0 at the start line, 1 once the course has nothing left to escalate.
+ *  Clamped at both ends: the run opens behind the start line (see LEAD_IN) and
+ *  a negative fraction raised to a fractional power is NaN, which would poison
+ *  every speed downstream of it. */
 export function difficultyAt(dist) {
-  return Math.min(1, dist / 26000);
+  return Math.max(0, Math.min(1, dist / 26000));
 }
 
 export function speedAt(dist) {
@@ -93,6 +96,27 @@ function arc(out, x0, y0, speed, span, n = 3) {
 // the pacer can follow a hard chunk with somewhere to breathe.
 
 const T = {};
+
+/**
+ * The ground the run opens on. Nothing to clear, nothing to dodge -- just enough
+ * road to see the city, feel the speed and find the keys before the first
+ * obstacle arrives, which at the opening speed is a little over three seconds.
+ *
+ * It is laid down BEHIND the start line, from -LEAD_IN to 0, so the metres on
+ * the HUD still begin where the course does: a free runway that also inflated
+ * every distance by eighty metres would quietly beat everyone's old best.
+ */
+T.leadin = {
+  tag: 'rest', from: 0,
+  build({ x, y, len }) {
+    const orbs = [];
+    // A short line at head height, in the back half where the player has had a
+    // moment to look up: the first thing on screen teaches what to collect, and
+    // it cannot be failed.
+    for (let i = 0; i < 4; i++) orbs.push(orb(x + len * 0.55 + i * 54, y - 40));
+    return { solids: [plat(x, len, y)], hazards: [], orbs, exitY: y, len };
+  },
+};
 
 T.flat = {
   tag: 'rest', from: 0,
@@ -272,6 +296,8 @@ T.rooftops = {
   },
 };
 
+// Everything the pacer may choose from. `leadin` is deliberately absent: it is
+// placed once, by hand, at the start of the course.
 const ORDER = ['flat', 'gaps', 'blocks', 'lowbars', 'stairs', 'pillars', 'chasm', 'drones', 'rooftops'];
 
 // --- assembly --------------------------------------------------------------
@@ -308,16 +334,29 @@ export function validate(c, x, entryY, speed, exitSpeed = speed, budget) {
 // unproven chunk is treated exactly like a failed one; it never ships.
 const LIVE_BUDGET = 60000;
 
-export function createCourse(seed = (Math.random() * 1e9) | 0) {
+/** How much clear road the run opens on, in px. Three and a half seconds at the
+ *  opening speed: long enough that the first obstacle is still off the right of
+ *  the screen when the run begins, and reaches the player only after they have
+ *  had a jump or two to get their hands sorted. */
+export const LEAD_IN = Math.round(speedAt(0) * 3.5);
+
+/**
+ * @param {number} seed
+ * @param {{leadIn?: number}} opts  `leadIn` 0 starts the course at the start
+ *   line with no runway -- what the title screen's attract loop wants, since
+ *   nobody is playing it and a blank straight is a dull thing to look at.
+ */
+export function createCourse(seed = (Math.random() * 1e9) | 0, { leadIn = LEAD_IN } = {}) {
   const r = rngFrom(seed);
-  let x = 0;
+  let x = -leadIn;
   let y = 0;
   let last = '';
   let sinceRest = 0;
+  let opened = leadIn <= 0;
   const stats = { built: 0, rerolled: 0, fellBack: 0, overBudget: 0 };
 
   function choose(d) {
-    if (sinceRest >= 3 || (last !== 'flat' && r() < 0.10)) return 'flat';
+    if (sinceRest >= 3 || (T[last]?.tag !== 'rest' && r() < 0.10)) return 'flat';
     const pool = ORDER.filter((k) => k !== 'flat' && k !== last && T[k].from <= d);
     // Bias toward the templates that only just unlocked -- new ideas feel like
     // progress, and the old ones still show up plenty. Up on the rooftops, lean
@@ -340,6 +379,14 @@ export function createCourse(seed = (Math.random() * 1e9) | 0) {
   function next() {
     const d = difficultyAt(x);
     const speed = speedAt(x);
+
+    // The runway is not proposed to the solver: it is a flat slab with nothing
+    // on it, and a validator that could fail it would be broken.
+    if (!opened) {
+      opened = true;
+      return finish(T.leadin.build({ x, y, len: leadIn }), 'leadin');
+    }
+
     let name = choose(d);
 
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -370,11 +417,11 @@ export function createCourse(seed = (Math.random() * 1e9) | 0) {
     x += c.len;
     y = c.exitY;
     last = name;
-    sinceRest = name === 'flat' ? 0 : sinceRest + 1;
+    sinceRest = T[name].tag === 'rest' ? 0 : sinceRest + 1;
     return chunk;
   }
 
-  return { next, stats, seed, get cursor() { return x; } };
+  return { next, stats, seed, startX: leadIn > 0 ? -leadIn : 0, get cursor() { return x; } };
 }
 
 export const templates = T;

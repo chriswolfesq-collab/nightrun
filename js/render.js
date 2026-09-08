@@ -344,24 +344,26 @@ export function createRenderer(canvas) {
     noGlow();
   }
 
-  /** The gate standing at your personal best -- something to actually run at. */
-  function drawBestGate(g) {
-    if (!g.bestGateX) return;
-    const x = sx(g, g.bestGateX);
-    if (x < -120 || x > W + 120) return;
-    const top = sy(g, -330), bot = sy(g, 60);
-    ctx.strokeStyle = g.passedBest ? C.cyan : C.violet;
-    ctx.lineWidth = 3 * scale;
-    ctx.globalAlpha = 0.75;
-    glow(ctx.strokeStyle, 18);
-    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
-    noGlow();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.font = `600 ${11 * scale}px ui-monospace, Menlo, monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText(g.passedBest ? 'NEW BEST' : 'YOUR BEST', x, top - 8);
-    ctx.textAlign = 'left';
+  /** Gates: something in the world to actually run at. */
+  function drawGates(g) {
+    for (const gate of g.gates) {
+      const x = sx(g, gate.x);
+      if (x < -140 || x > W + 140) continue;
+      const top = sy(g, -330), bot = sy(g, 60);
+      const color = gate.passed ? C.cyan : gate.tone === 'target' ? C.magenta : C.violet;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3 * scale;
+      ctx.globalAlpha = 0.75;
+      glow(color, 18);
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+      noGlow();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.font = `600 ${11 * scale}px ui-monospace, Menlo, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(gate.passed ? gate.done : gate.label, x, top - 8);
+      ctx.textAlign = 'left';
+    }
   }
 
   function drawParticles(g) {
@@ -485,7 +487,7 @@ export function createRenderer(canvas) {
     drawSkyline(g, 0, 0.10, '#1c0a3a', 'rgba(255,90,170,0.30)', 40);
     drawSkyline(g, 1, 0.26, '#100626', 'rgba(90,230,255,0.32)', 8);
     drawGrid(g);
-    drawBestGate(g);
+    drawGates(g);
     drawSolids(g);
     drawHazards(g);
     drawOrbs(g);

@@ -25,7 +25,7 @@ export function createGame({ audio, particles = createParticles() } = {}) {
     cam: { x: -240, y: 0 },
     trail: [], particles,
     shake: 0, flash: 0,
-    bestGateX: 0, passedBest: false, best: 0,
+    gates: [],
     seed: 0, viewW: 900,
     milestone: 0,
     cause: '',
@@ -36,22 +36,27 @@ export function createGame({ audio, particles = createParticles() } = {}) {
   let carry = 0;
   let liveWorld = { solids: [], hazards: [] };
 
-  function start(seed = (Math.random() * 1e9) | 0, best = 0) {
+  function start(seed = (Math.random() * 1e9) | 0, gates = [], { leadIn } = {}) {
     g.seed = seed;
-    g.course = createCourse(seed);
+    g.course = createCourse(seed, leadIn === undefined ? {} : { leadIn });
     g.chunks = [];
-    g.player = newState(0, 0);
-    g.speed = speedAt(0);
+    // The run opens on the generator's runway, behind the start line, so the
+    // first obstacle is still seconds away when control is handed over.
+    g.player = newState(g.course.startX, 0);
+    g.speed = speedAt(g.player.x);
     g.dist = 0; g.score = 0; g.orbs = 0; g.mult = 1;
     g.charge = 0; g.surge = 0; g.surgesUsed = 0;
     g.alive = true; g.deathT = 0; g.hitstop = 0;
     g.runTime = 0; g.milestone = 0; g.cause = '';
     g.trail.length = 0;
-    g.cam.x = -240; g.cam.y = 0;
+    g.cam.x = g.player.x - 240; g.cam.y = 0;
     g.shake = 0; g.flash = 0;
-    g.best = best;
-    g.bestGateX = best > 0 ? best * PX_PER_M : 0;
-    g.passedBest = best === 0;
+    // Gates are the only thing in the world that is about you rather than about
+    // the course: your best, and whatever distance somebody sent you.
+    g.gates = gates
+      .filter((gt) => gt.m > 0)
+      .map((gt) => ({ ...gt, x: gt.m * PX_PER_M, passed: false }))
+      .sort((a, b) => a.x - b.x);
     groundRef = 0;
     carry = 0;
     g.state = 'playing';
@@ -232,10 +237,11 @@ export function createGame({ audio, particles = createParticles() } = {}) {
     // --- score -------------------------------------------------------------
     g.dist = Math.max(0, g.player.x / PX_PER_M);
     g.score += (g.speed * dt) / PX_PER_M * g.mult * 0.4;
-    if (!g.passedBest && g.bestGateX && g.player.x > g.bestGateX) {
-      g.passedBest = true;
+    for (const gate of g.gates) {
+      if (gate.passed || g.player.x <= gate.x) continue;
+      gate.passed = true;
       g.flash = 0.22;
-      particles.burst(g.player.x, g.player.y - 30, 34, 190, 380, { grav: 200 });
+      particles.burst(g.player.x, g.player.y - 30, 34, gate.hue ?? 190, 380, { grav: 200 });
       audio?.milestone();
     }
     const m = Math.floor(g.dist / 500);
@@ -271,5 +277,19 @@ export function createGame({ audio, particles = createParticles() } = {}) {
     particles.update(dt);
   }
 
-  return { g, start, tick, idle, buildWorld, get run() { return { dist: Math.round(g.dist), score: Math.round(g.score), orbs: g.orbs }; } };
+  return {
+    g, start, tick, idle, buildWorld,
+    get run() {
+      return {
+        dist: Math.round(g.dist),
+        score: Math.round(g.score),
+        orbs: g.orbs,
+        mult: 1 + Math.floor(g.dist / 400),   // the multiplier without the surge doubling
+        surges: g.surgesUsed,
+        time: g.runTime,
+        cause: g.cause,
+        seed: g.seed,
+      };
+    },
+  };
 }

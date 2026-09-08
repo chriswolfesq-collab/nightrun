@@ -130,6 +130,44 @@ button {
 .go:hover { transform: translateY(-2px); box-shadow: 0 0 48px rgba(63, 240, 255, .8); }
 .go:active { transform: translateY(1px); }
 
+.go.ghost {
+  color: var(--cyan); background: none;
+  box-shadow: inset 0 0 0 1px rgba(63, 240, 255, .5);
+}
+.go.ghost:hover { box-shadow: inset 0 0 0 1px var(--cyan), 0 0 30px rgba(63, 240, 255, .35); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.actions .go { margin-top: 26px; padding: 15px 30px; }
+
+.link {
+  margin-top: 14px; font-size: 11.5px; letter-spacing: .1em;
+  color: var(--violet); opacity: .8; text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.link:hover { opacity: 1; color: var(--cyan); }
+
+/* A challenge link says whose city this is before you press RUN. */
+.banner {
+  margin: 0 0 22px; padding: 9px 20px;
+  font-size: 11.5px; letter-spacing: .18em;
+  color: var(--magenta);
+  border: 1px solid rgba(255, 46, 147, .45);
+  border-radius: 3px;
+  background: rgba(255, 46, 147, .08);
+  box-shadow: 0 0 26px rgba(255, 46, 147, .2);
+}
+.banner b { color: #fff; font-size: 13px; }
+
+/* Last resort when neither the share sheet nor the clipboard is available. */
+.share-fallback {
+  position: fixed; z-index: 9; left: 50%; bottom: 24px;
+  transform: translateX(-50%);
+  width: min(440px, 88vw); height: 132px; padding: 12px;
+  font: 12px/1.5 var(--mono); color: #eaf6ff;
+  background: #0b0720; border: 1px solid var(--violet); border-radius: 6px;
+  resize: none;
+}
+
 /* ---------- screens ---------- */
 
 .screen {
