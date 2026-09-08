@@ -16,7 +16,8 @@ python3 -m http.server 5190 --directory nightrun
 
 - **Desktop:** `Space` / `↑` / `W` jump — hold for height, press again in the air ·
   `↓` / `S` slide · `Shift` / `X` surge · `Esc` pause · `M` mute · `R` restart
-- **Touch:** tap to jump, drag down to slide, ⚡ button to surge
+- **Touch:** tap anywhere to jump, hold the ▼ pad (bottom left) to slide, ⚡ (bottom
+  right) to surge
 - Gamepad works too.
 
 ## The idea
@@ -131,6 +132,10 @@ than the game was. Solving once and replaying has no such opinions.
   every frame.
 - **The camera frames width, not height.** Scaled to height, a portrait phone saw
   286 world pixels of course — about half a second of warning at speed.
+- **Jump and slide need separate touch controls.** They cannot share one: a jump
+  has to fire the instant a finger lands, and a drag can only be told apart from
+  a tap after the fact, so "tap to jump, drag down to slide" jumps first every
+  single time and then slides. Hence the two pads.
 
 ## Surge is the one place the guarantee stops
 

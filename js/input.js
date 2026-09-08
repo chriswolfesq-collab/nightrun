@@ -6,9 +6,14 @@
 // survives the release that should have ended it: an early version kept `slide`
 // until every key was up, so ducking under a gate and then jumping left you
 // stuck in a slide until you let go of both.
+//
+// On touch, jump and slide get separate controls rather than sharing one touch.
+// They cannot share it: a jump has to fire the instant a finger lands, and a
+// drag can only be told apart from a tap after the fact, so "tap to jump, drag
+// down to slide" jumps first every time and then slides.
 
-export function createInput(canvas) {
-  const st = { jumpPressed: false, surge: false, any: false, slide: false };
+export function createInput(canvas, pads = {}) {
+  const st = { jumpPressed: false, surge: false, slide: false };
 
   const keys = new Set();
   const JUMP = new Set(['Space', 'ArrowUp', 'KeyW', 'KeyZ']);
@@ -20,45 +25,67 @@ export function createInput(canvas) {
     if (JUMP.has(e.code) || SLIDE.has(e.code) || SURGE.has(e.code)) e.preventDefault();
     if (e.repeat) return;
     keys.add(e.code);
-    if (JUMP.has(e.code)) { st.jumpPressed = true; st.any = true; }
+    if (JUMP.has(e.code)) st.jumpPressed = true;
     if (SURGE.has(e.code)) st.surge = true;
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
-  addEventListener('blur', () => keys.clear());
 
-  // --- touch ---------------------------------------------------------------
-  // Tap anywhere to jump; drag down from that tap to slide. Surge gets its own
-  // corner so a mistimed jump can never spend the meter.
-  const touches = new Map();
-  const surgeZone = () => ({ x: innerWidth - 108, y: innerHeight - 116, w: 92, h: 92 });
-  const inZone = (t, z) => t.clientX > z.x && t.clientY > z.y;
+  // --- touch: anywhere on the playfield is jump ----------------------------
+  const touches = new Set();
 
   canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    for (const t of e.changedTouches) {
-      if (inZone(t, surgeZone())) { st.surge = true; touches.set(t.identifier, { surge: true }); continue; }
-      touches.set(t.identifier, { y0: t.clientY, slid: false });
-      st.jumpPressed = true;
-      st.any = true;
-    }
+    for (const t of e.changedTouches) touches.add(t.identifier);
+    st.jumpPressed = true;
   }, { passive: false });
 
-  canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    for (const t of e.changedTouches) {
-      const rec = touches.get(t.identifier);
-      if (rec && !rec.surge && t.clientY - rec.y0 > 42) rec.slid = true;
-    }
-  }, { passive: false });
-
-  const end = (e) => {
+  const endTouch = (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) touches.delete(t.identifier);
   };
-  canvas.addEventListener('touchend', end, { passive: false });
-  canvas.addEventListener('touchcancel', end, { passive: false });
+  canvas.addEventListener('touchend', endTouch, { passive: false });
+  canvas.addEventListener('touchcancel', endTouch, { passive: false });
 
-  const someTouch = (fn) => { for (const v of touches.values()) if (fn(v)) return true; return false; };
+  // --- on-screen pads ------------------------------------------------------
+  let padSlideHeld = false;
+
+  /**
+   * Bind a pad. Pointer capture is the important part: without it, sliding your
+   * thumb off the edge of the button mid-slide never delivers the release, and
+   * the player stays crouched until they happen to press it again.
+   */
+  function bind(el, { onDown, onUp }) {
+    if (!el) return;
+    const down = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.pointerId != null && el.setPointerCapture) {
+        try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      }
+      el.classList.add('on');
+      onDown();
+    };
+    const up = (e) => {
+      if (e) e.stopPropagation();
+      el.classList.remove('on');
+      onUp?.();
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('lostpointercapture', up);
+    return up;
+  }
+
+  const releaseSlide = bind(pads.slide, {
+    onDown: () => { padSlideHeld = true; },
+    onUp: () => { padSlideHeld = false; },
+  });
+  bind(pads.surge, { onDown: () => { st.surge = true; } });
+
+  // A pad hidden mid-press (surge appears, the run ends) never gets its release.
+  const clearHeld = () => { padSlideHeld = false; releaseSlide?.(); };
+  addEventListener('blur', () => { keys.clear(); touches.clear(); clearHeld(); });
 
   // --- gamepad -------------------------------------------------------------
   let padJump = false, padSurge = false, padHeld = false, padSlide = false;
@@ -67,14 +94,14 @@ export function createInput(canvas) {
     padHeld = false;
     padSlide = false;
     let jump = false, surge = false;
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const p of pads) {
+    const list = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of list) {
       if (!p) continue;
       if (p.buttons[0]?.pressed || p.buttons[3]?.pressed) { jump = true; padHeld = true; }
       if (p.buttons[1]?.pressed || p.buttons[7]?.value > 0.4) padSlide = true;
       if (p.buttons[2]?.pressed || p.buttons[5]?.pressed) surge = true;
     }
-    if (jump && !padJump) { st.jumpPressed = true; st.any = true; }
+    if (jump && !padJump) st.jumpPressed = true;
     if (surge && !padSurge) st.surge = true;
     padJump = jump;
     padSurge = surge;
@@ -85,8 +112,8 @@ export function createInput(canvas) {
     pollPads();
     const out = {
       jump: st.jumpPressed,
-      jumpHeld: padHeld || anyOf(JUMP) || someTouch((v) => !v.surge && !v.slid),
-      slide: padSlide || anyOf(SLIDE) || someTouch((v) => v.slid),
+      jumpHeld: padHeld || anyOf(JUMP) || touches.size > 0,
+      slide: padSlide || padSlideHeld || anyOf(SLIDE),
       surge: st.surge,
     };
     st.jumpPressed = false;
@@ -95,5 +122,5 @@ export function createInput(canvas) {
     return out;
   }
 
-  return { take, state: st, surgeZone };
+  return { take, state: st, clearHeld };
 }

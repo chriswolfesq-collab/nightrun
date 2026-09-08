@@ -8,7 +8,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('stage');
 
 const renderer = createRenderer(canvas);
-const input = createInput(canvas);
+const input = createInput(canvas, { slide: $('slidebtn'), surge: $('surgebtn') });
 const audio = createAudio();
 const game = createGame({ audio });
 const g = game.g;
@@ -22,6 +22,14 @@ const screens = { title: $('title'), over: $('over'), paused: $('paused') };
 function show(name) {
   for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
   $('hud').hidden = name === 'title';
+  // The on-screen pads belong to the run, not the menus. Hiding one mid-press
+  // would swallow its release, so the input layer is told to let go first.
+  const playing = name === null;
+  $('slidebtn').hidden = !(playing && matchMedia('(pointer: coarse)').matches);
+  if (!playing) {
+    input.clearHeld();
+    $('surgebtn').hidden = true;
+  }
 }
 
 function verdictFor(dist) {
@@ -77,8 +85,6 @@ $('mute').onclick = (e) => {
   $('mute').classList.toggle('off', m);
   $('mute').textContent = m ? '✕' : '♪';
 };
-
-$('surgebtn').onclick = (e) => { e.stopPropagation(); input.state.surge = true; };
 
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') $('mute').click();

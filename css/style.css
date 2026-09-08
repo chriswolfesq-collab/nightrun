@@ -84,13 +84,37 @@ button {
 #mute:hover { opacity: 1; }
 #mute.off { color: var(--magenta); opacity: .9; }
 
-#surgebtn {
+/* Held controls. `touch-action: none` matters as much as the styling: without it
+   the browser treats a press-and-hold on the pad as a scroll or a text selection
+   and steals the touch mid-slide. */
+.pad {
   position: absolute; z-index: 4;
-  right: max(16px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: max(24px, env(safe-area-inset-bottom));
   width: 92px; height: 92px; border-radius: 50%;
+  line-height: 1;
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+}
+
+#slidebtn {
+  left: max(16px, env(safe-area-inset-left));
+  border: 2px solid var(--violet); color: var(--cyan);
+  background: radial-gradient(circle, rgba(154, 107, 255, .20), rgba(154, 107, 255, .04));
+  font-size: 27px;
+  box-shadow: 0 0 22px rgba(154, 107, 255, .35);
+  transition: transform .06s, box-shadow .06s, background .06s;
+}
+#slidebtn.on {
+  transform: scale(.94);
+  background: radial-gradient(circle, rgba(63, 240, 255, .34), rgba(63, 240, 255, .08));
+  box-shadow: 0 0 34px rgba(63, 240, 255, .7);
+}
+
+#surgebtn {
+  right: max(16px, env(safe-area-inset-right));
   border: 2px solid var(--amber); color: var(--amber);
   background: radial-gradient(circle, rgba(255, 194, 71, .22), rgba(255, 194, 71, .04));
-  font-size: 34px; line-height: 1;
+  font-size: 34px;
   box-shadow: 0 0 26px rgba(255, 194, 71, .45);
   animation: pulse 1.1s infinite;
 }
