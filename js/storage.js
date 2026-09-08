@@ -1,6 +1,9 @@
 const KEY = 'nightrun.v1';
 
-const blank = () => ({ best: 0, bestScore: 0, runs: 0, totalDist: 0, bestOrbs: 0, seen: {} });
+// `taught` is set the first time the player clears the opening air-jump gap.
+// It only ever silences the prompt -- the gap itself is in the course for
+// everybody, so two people running the same seed run the same city.
+const blank = () => ({ best: 0, bestScore: 0, runs: 0, totalDist: 0, bestOrbs: 0, taught: false, seen: {} });
 
 export function load() {
   try {
@@ -21,6 +24,14 @@ export function record(run) {
   s.best = Math.max(s.best, run.dist);
   s.bestScore = Math.max(s.bestScore, run.score);
   s.bestOrbs = Math.max(s.bestOrbs, run.orbs);
+  save(s);
+  return s;
+}
+
+export function markTaught() {
+  const s = load();
+  if (s.taught) return s;
+  s.taught = true;
   save(s);
   return s;
 }

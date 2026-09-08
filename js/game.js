@@ -2,7 +2,7 @@
 // renderer and the HUD read.
 
 import { step, newState, playerBox, hazardBox, P } from './physics.js';
-import { createCourse, speedAt, difficultyAt, PX_PER_M } from './generator.js';
+import { createCourse, speedAt, difficultyAt, PX_PER_M, CAP_M } from './generator.js';
 import { createParticles } from './particles.js';
 
 const DT = 1 / 120;
@@ -12,6 +12,17 @@ const SURGE_COST = 100;
 const SURGE_TIME = 3.2;
 const SURGE_BOOST = 1.32;
 const ORB_CHARGE = 9;
+const MULT_STEP = 400;         // metres per step of the multiplier
+
+// The multiplier stops where the course does. Past the end of the difficulty
+// ramp the run is not getting any harder -- same speed, same widest gap, same
+// everything -- so a metre out there is worth exactly what a metre at the cap is
+// worth. Without this the leaderboard stops measuring how far anyone can get and
+// starts measuring who was willing to hold the key down the longest.
+const MULT_MAX = 1 + Math.floor(CAP_M / MULT_STEP);
+
+/** The multiplier the distance alone has earned, before surge doubles it. */
+const baseMult = (dist) => Math.min(MULT_MAX, 1 + Math.floor(dist / MULT_STEP));
 
 export function createGame({ audio, particles = createParticles() } = {}) {
   const g = {
@@ -29,6 +40,7 @@ export function createGame({ audio, particles = createParticles() } = {}) {
     seed: 0, viewW: 900,
     milestone: 0,
     cause: '',
+    cue: null,          // where the air-jump lesson is, once it is streamed in
   };
 
   let groundRef = 0;
@@ -47,7 +59,7 @@ export function createGame({ audio, particles = createParticles() } = {}) {
     g.dist = 0; g.score = 0; g.orbs = 0; g.mult = 1;
     g.charge = 0; g.surge = 0; g.surgesUsed = 0;
     g.alive = true; g.deathT = 0; g.hitstop = 0;
-    g.runTime = 0; g.milestone = 0; g.cause = '';
+    g.runTime = 0; g.milestone = 0; g.cause = ''; g.cue = null;
     g.trail.length = 0;
     g.cam.x = g.player.x - 240; g.cam.y = 0;
     g.shake = 0; g.flash = 0;
@@ -65,7 +77,11 @@ export function createGame({ audio, particles = createParticles() } = {}) {
 
   /** Keep the built course a fixed distance ahead, and forget what is behind. */
   function stream() {
-    while (g.course.cursor < g.player.x + AHEAD) g.chunks.push(g.course.next());
+    while (g.course.cursor < g.player.x + AHEAD) {
+      const c = g.course.next();
+      if (c.cue) g.cue = c.cue;
+      g.chunks.push(c);
+    }
     while (g.chunks.length > 1 && g.chunks[0].x + g.chunks[0].len < g.player.x - BEHIND) g.chunks.shift();
   }
 
@@ -187,7 +203,7 @@ export function createGame({ audio, particles = createParticles() } = {}) {
 
     const base = speedAt(g.player.x);
     g.speed = base * (g.surge > 0 ? SURGE_BOOST : 1);
-    g.mult = (1 + Math.floor(g.dist / 400)) * (g.surge > 0 ? 2 : 1);
+    g.mult = baseMult(g.dist) * (g.surge > 0 ? 2 : 1);
 
     // --- physics -----------------------------------------------------------
     // Fixed substeps of exactly DT, with the remainder carried to the next
@@ -284,7 +300,7 @@ export function createGame({ audio, particles = createParticles() } = {}) {
         dist: Math.round(g.dist),
         score: Math.round(g.score),
         orbs: g.orbs,
-        mult: 1 + Math.floor(g.dist / 400),   // the multiplier without the surge doubling
+        mult: baseMult(g.dist),   // the multiplier without the surge doubling
         surges: g.surgesUsed,
         time: g.runTime,
         cause: g.cause,

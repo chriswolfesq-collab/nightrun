@@ -45,6 +45,35 @@ html, body {
 
 .stat.mult span { color: var(--amber); font-size: 19px; text-shadow: 0 0 16px rgba(255, 194, 71, .7); }
 .stat.mult { transition: transform .12s; }
+/* At the cap the number stops moving, so say why rather than letting it look
+   like the HUD has frozen. */
+.stat.mult.maxed::after {
+  content: 'MAX'; align-self: center;
+  font-size: 8px; letter-spacing: .18em; color: var(--amber); opacity: .7;
+}
+
+/* The one thing the game says out loud, and only until it has been done once.
+   Carried on its own plate, like the challenge banner: bare glowing text is
+   unreadable over a lit skyline, which is exactly what is behind it. */
+#cue {
+  position: absolute; z-index: 2; left: 0; right: 0;
+  top: 20%; margin: 0; padding: 0 16px;
+  display: flex; justify-content: center;
+  pointer-events: none;
+  animation: fade .25s ease;
+}
+#cue[hidden] { display: none; }
+#cue span {
+  padding: 9px 18px;
+  font-size: clamp(12px, 3vw, 17px); letter-spacing: .16em; font-weight: 600;
+  color: #fff;
+  background: rgba(4, 3, 15, .74);
+  border: 1px solid rgba(63, 240, 255, .4);
+  border-radius: 3px;
+  box-shadow: 0 0 28px rgba(63, 240, 255, .22);
+  text-shadow: 0 0 12px rgba(63, 240, 255, .7);
+}
+#cue b { color: var(--cyan); }
 
 .surge { margin-top: 10px; display: flex; align-items: center; gap: 9px; }
 .surge-bar {

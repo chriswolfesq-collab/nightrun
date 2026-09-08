@@ -16,12 +16,20 @@ import { solve } from './solver.js';
 
 export const PX_PER_M = 15;
 
+/** World px over which the course escalates. Past this the run is as fast, as
+ *  dense and as wide as it is ever going to get. */
+const RAMP = 26000;
+
+/** Where the course stops escalating, in metres -- the far end of the ramp
+ *  above, in the units the HUD and the scoring work in. */
+export const CAP_M = RAMP / PX_PER_M;
+
 /** 0 at the start line, 1 once the course has nothing left to escalate.
  *  Clamped at both ends: the run opens behind the start line (see LEAD_IN) and
  *  a negative fraction raised to a fractional power is NaN, which would poison
  *  every speed downstream of it. */
 export function difficultyAt(dist) {
-  return Math.max(0, Math.min(1, dist / 26000));
+  return Math.max(0, Math.min(1, dist / RAMP));
 }
 
 export function speedAt(dist) {
@@ -53,7 +61,7 @@ const plat = (x, w, y) => ({ x, y, w, h: SLAB, kind: 'floor' });
 /** Keep floors on the level grid so the skyline reads as a set of storeys. */
 const snap = (y) => LEVELS.reduce((a, b) => (Math.abs(b - y) < Math.abs(a - y) ? b : a));
 const block = (x, w, y, h, kind = 'block') => ({ x, y, w, h, kind });
-const spike = (x, w) => ({ type: 'spike', x, y: -24, w, h: 24 });
+const spike = (x, w, y = 0) => ({ type: 'spike', x, y: y - 24, w, h: 24 });
 const drone = (x, y, amp, freq, phase) =>
   ({ type: 'drone', x, y, w: 30, h: 30, amp, freq, phase });
 const orb = (x, y) => ({ x, y });
@@ -118,6 +126,45 @@ T.leadin = {
   },
 };
 
+/**
+ * The air-jump lesson: a gap a single jump cannot clear, at the opening speed,
+ * with a long approach and a long landing. The only chunk that is placed rather
+ * than chosen.
+ *
+ * "Again in the air" on the title screen is a sentence, not a lesson. A player
+ * who has not found the second jump runs perfectly well for several hundred
+ * metres and then meets a chasm sized at 90% of what the air jump can do, with
+ * nothing on screen to tell them which move they are missing. So the course asks
+ * the question in the first four seconds instead, where the answer is cheap and
+ * the retry is immediate, and `cue` tells the HUD where to put the prompt.
+ *
+ * It goes into every seeded course, whether or not this player still needs it: a
+ * city that quietly rearranged itself around who was running it would not be the
+ * same city as the one in the link they were sent.
+ */
+T.teach = {
+  tag: 'work', from: 0,
+  build({ x, y, speed }) {
+    const lead = 320;
+    // Well past a full single jump -- which is the whole point of it -- and well
+    // inside a double: 79% of what the air jump actually reaches, against the 86%
+    // the hardest real chasm is allowed.
+    const g = singleMax(speed) * 1.18;
+    const tail = 420;
+    const orbs = [];
+    // Strung across the back half of the arc, at a height the player can only be
+    // at if the second jump has already happened.
+    for (let i = 0; i < 4; i++) {
+      orbs.push(orb(x + lead + g * (0.45 + (i / 3) * 0.4), y - 250 + 40 * Math.abs(i - 1.5)));
+    }
+    return {
+      solids: [plat(x, lead, y), plat(x + lead + g, tail, y)],
+      hazards: [], orbs, exitY: y, len: lead + g + tail,
+      cue: { x: x + lead, w: g },
+    };
+  },
+};
+
 T.flat = {
   tag: 'rest', from: 0,
   build({ x, y, speed, r }) {
@@ -160,7 +207,7 @@ T.blocks = {
       const bx = x + step * (i + 0.85);
       const bw = rnd(r, 34, 52);
       if (r() < 0.35 + 0.3 * d) {
-        hazards.push(spike(bx, bw));
+        hazards.push(spike(bx, bw, y));
       } else {
         const bh = rnd(r, 46, 46 + 46 * d);
         solids.push(block(bx, bw, y - bh, bh));
@@ -353,6 +400,7 @@ export function createCourse(seed = (Math.random() * 1e9) | 0, { leadIn = LEAD_I
   let last = '';
   let sinceRest = 0;
   let opened = leadIn <= 0;
+  let taught = leadIn <= 0;      // the attract loop has nobody to teach
   const stats = { built: 0, rerolled: 0, fellBack: 0, overBudget: 0 };
 
   function choose(d) {
@@ -387,6 +435,16 @@ export function createCourse(seed = (Math.random() * 1e9) | 0, { leadIn = LEAD_I
       return finish(T.leadin.build({ x, y, len: leadIn }), 'leadin');
     }
 
+    // The lesson comes before anything the pacer chose, so it always lands on
+    // the opening speed with clear ground either side. It is proved like any
+    // other chunk -- hand-placed is not the same as trustworthy -- and if it
+    // ever stopped proving, the run simply carries on without it.
+    if (!taught) {
+      taught = true;
+      const c = T.teach.build({ x, y, speed });
+      if (validate(c, x, y, speed, speedAt(x + c.len), LIVE_BUDGET).ok) return finish(c, 'teach');
+    }
+
     let name = choose(d);
 
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -413,6 +471,7 @@ export function createCourse(seed = (Math.random() * 1e9) | 0, { leadIn = LEAD_I
       solids: c.solids,
       hazards: c.hazards,
       orbs: c.orbs.map((o) => ({ ...o, taken: false })),
+      cue: c.cue,
     };
     x += c.len;
     y = c.exitY;

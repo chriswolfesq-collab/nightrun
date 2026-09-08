@@ -248,17 +248,39 @@ export function createRenderer(canvas) {
     ctx.stroke();
     noGlow();
 
+    // Blocks are things you land ON, spikes are things that end the run, and at
+    // 900px/s the pair used to be one silhouette: a magenta-outlined mass sitting
+    // on the floor line. So a block is now drawn as what it is -- a short piece of
+    // floor, with the same glowing cyan lip and magenta shadow every other
+    // standable surface in the frame gets -- and only its sides are violet
+    // masonry. Cyan means "stand here" everywhere else; it has to mean it here.
     for (const s of blocks) {
       const x = sx(g, s.x), y = sy(g, s.y), w = s.w * scale, h = s.h * scale;
-      ctx.fillStyle = 'rgba(70,16,58,0.92)';
+      ctx.fillStyle = 'rgba(46,18,86,0.94)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = g.surge > 0 ? C.amber : C.magenta;
+
+      const surging = g.surge > 0;
+      ctx.strokeStyle = surging ? C.amber : 'rgba(154,107,255,0.8)';
       ctx.lineWidth = 2 * scale;
-      glow(ctx.strokeStyle, 12);
-      ctx.strokeRect(x, y, w, h);
+      if (surging) glow(C.amber, 12);
+      ctx.beginPath();                       // sides and base only: the top is a floor
+      ctx.moveTo(x, y); ctx.lineTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y);
+      ctx.stroke();
       noGlow();
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
       for (let i = 1; i < 4; i++) ctx.fillRect(x + 3, y + (h * i) / 4, w - 6, 1.5);
+
+      ctx.strokeStyle = surging ? C.amber : C.cyan;
+      ctx.lineWidth = Math.max(1.5, 2.4 * scale);
+      glow(ctx.strokeStyle, 14);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.stroke();
+      noGlow();
+      ctx.strokeStyle = 'rgba(255,46,147,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 5 * scale); ctx.lineTo(x + w, y + 5 * scale);
+      ctx.stroke();
     }
 
     for (const s of bars) {
@@ -293,6 +315,11 @@ export function createRenderer(canvas) {
         if (h.x + h.w < left || h.x > right) continue;
         if (h.type === 'spike') {
           const x = sx(g, h.x), y = sy(g, h.y + h.h), w = h.w * scale, ht = h.h * scale;
+          // A red stripe burnt into the deck beneath the teeth. The teeth
+          // themselves are only 24px tall and read as a texture at speed; the
+          // stripe is what says "not here" from far enough away to act on.
+          ctx.fillStyle = 'rgba(255,51,85,0.6)';
+          ctx.fillRect(x - 3 * scale, y, w + 6 * scale, 5 * scale);
           ctx.fillStyle = C.danger;
           glow(C.danger, 12);
           ctx.beginPath();

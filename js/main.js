@@ -1,5 +1,6 @@
 import { createRenderer } from './render.js';
 import { createGame } from './game.js';
+import { CAP_M } from './generator.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import * as store from './storage.js';
@@ -25,6 +26,7 @@ const screens = { title: $('title'), over: $('over'), paused: $('paused') };
 function show(name) {
   for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
   $('hud').hidden = name === 'title';
+  if (name !== null) $('cue').hidden = true;
   // The on-screen pads belong to the run, not the menus. Hiding one mid-press
   // would swallow its release, so the input layer is told to let go first.
   const playing = name === null;
@@ -166,17 +168,34 @@ addEventListener('blur', () => {
 
 // --- hud -------------------------------------------------------------------
 
+// The air-jump prompt. It is on screen from a little before the opening gap
+// until the far lip, and only for a player who has never crossed it: the lesson
+// is over the moment it has been demonstrated, and nagging past that point is
+// how a tutorial turns into furniture.
+function updateCue() {
+  const cue = g.cue;
+  if (!cue || stats.taught) { $('cue').hidden = true; return; }
+  const x = g.player.x;
+  if (x > cue.x + cue.w + 40) {
+    stats = store.markTaught();     // landed it -- never ask again
+    $('cue').hidden = true;
+    return;
+  }
+  $('cue').hidden = !(x > cue.x - 620);
+}
+
 let lastMult = 1;
 function updateHud() {
   $('dist').textContent = Math.round(g.dist);
   $('best').textContent = Math.round(Math.max(stats.best, g.dist));
   $('score').textContent = Math.round(g.score).toLocaleString();
   $('mult').textContent = `×${g.mult}`;
+  const multEl = document.querySelector('.stat.mult');
+  multEl.classList.toggle('maxed', g.dist >= CAP_M);
   if (g.mult !== lastMult) {
     lastMult = g.mult;
-    const el = document.querySelector('.stat.mult');
-    el.style.transform = 'scale(1.35)';
-    setTimeout(() => (el.style.transform = ''), 130);
+    multEl.style.transform = 'scale(1.35)';
+    setTimeout(() => (multEl.style.transform = ''), 130);
   }
   const pct = g.surge > 0 ? (g.surge / 3.2) * 100 : g.charge;
   $('surgefill').style.width = `${pct}%`;
@@ -210,7 +229,7 @@ function frame(now) {
       overShownAt = now;
       finish();
     }
-    if (g.state === 'playing') updateHud();
+    if (g.state === 'playing') { updateHud(); updateCue(); }
   }
   wasState = g.state;
   renderer.draw(g);
